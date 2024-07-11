@@ -3,6 +3,8 @@ from copy import copy
 from dataclasses import dataclass
 from typing import Any, Dict, List, Type
 
+from airena.db import write_history_to_db
+from airena.enums import DatabaseSave
 from airena.adapters import Adapter, OpenAIAdapter
 
 MODEL_NAME_TO_ADAPTER_MAP: Dict[str, Type[Adapter]] = {
@@ -19,7 +21,6 @@ class TurnInformation:
 @dataclass
 class DebateConfig:
     conversation_depth: int
-    database_connection_string: str
     model_names: List[str]
     system_prompt: str
 
@@ -87,12 +88,23 @@ class DebateEngine:
             history=DebateHistory.from_prompt(config.system_prompt),
         )
 
-    def run_debate(self) -> DebateHistory:
+    def run_debate(self):
         queue = deque(copy(self.adapters))
-        for _ in range(self.max_conversation_depth):
+        for i in range(self.max_conversation_depth):
+            print(f"{i+1}/{self.max_conversation_depth}")
             current_adapter = queue.popleft()
             message = current_adapter.get_next_message(self.history)
             self.history.add_message(message)
             queue.append(current_adapter)
 
-        return self.history
+    def write_results_to_db(self) -> DatabaseSave:
+        """
+        Ideally I'd have some kind of manager class to do this instead of this.
+        This class is only supposed to manage the debating back and forth, not
+        also the saving of the data to the database.
+        """
+
+        return write_history_to_db(
+            [adapter.to_json() for adapter in self.adapters],
+            self.history.to_json_serialisable(self.adapters),
+        )

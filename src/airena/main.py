@@ -37,14 +37,15 @@ from airena.engine import DebateConfig, DebateEngine
 def main():
     load_dotenv()
     config = DebateConfig(
-        conversation_depth=4,
-        database_connection_string="airena.db",
+        conversation_depth=2,
         model_names=["gpt-3.5-turbo", "gpt-3.5-turbo"],
         system_prompt="You are in a debate competition. You are arguing FOR the following motion: `The death penalty should be legalised`",
     )
 
     engine = DebateEngine.from_config(config)
-    history = engine.run_debate()
+    engine.run_debate()
+    history = engine.history
+    engine.write_results_to_db()
 
     json_history = history.to_json_serialisable(engine.adapters)
     with open("history.json", "w") as f:

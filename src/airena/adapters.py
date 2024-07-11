@@ -9,6 +9,8 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam,
 )
 
+from airena.types import JsonType
+
 
 if TYPE_CHECKING:
     from airena.engine import DebateHistory, TurnInformation
@@ -26,6 +28,7 @@ class Adapter(Protocol):
         model_name: str, turn_information: "TurnInformation"
     ) -> "Adapter": ...
 
+    def to_json(self) -> JsonType: ...
     def serialise_history(self, history: "DebateHistory") -> Iterable: ...
     def get_next_message(self, history: "DebateHistory") -> str: ...
 
@@ -51,6 +54,9 @@ class OpenAIAdapter(Adapter):
             _turn_information=turn_information,
             _client=OpenAI(),
         )
+
+    def to_json(self) -> JsonType:
+        return {"provider": "OpenAI", "model_name": self.model_name}
 
     def serialise_history(self, history: "DebateHistory"):
         openai_history: List[ChatCompletionMessageParam] = [
