@@ -1,5 +1,5 @@
 import pytest
-import airena
+from airena.utils import flip_roles
 
 
 @pytest.mark.parametrize(
@@ -28,4 +28,4 @@ import airena
     ],
 )
 def test_flip_roles(messages, expected_messages):
-    assert airena.utils.flip_roles(messages) == expected_messages
+    assert flip_roles(messages) == expected_messages
