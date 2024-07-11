@@ -1,60 +1,56 @@
+import json
 from dotenv import load_dotenv
-from openai import OpenAI
 
-from . import utils
+from airena.engine import DebateConfig, DebateEngine
 
 
-# response = client.chat.completions.create(
-#     model="gpt-3.5-turbo",
-#     messages=[
+# def main():
+#     load_dotenv()
+#     client = OpenAI()
+#
+#     history = [
 #         {
 #             "role": "system",
-#             "content": "You are in a debate competition. You are arguing FOR the following motion: `The death penalty should be legalised`.",
-#         },
-#         {
-#             "role": "user",
-#             "content": "Who won the world series in 2020?",
-#         },
-#         {
-#             "role": "assistant",
-#             "content": "The Los Angeles Dodgers won the World Series in 2020.",
-#         },
-#         {
-#             "role": "user",
-#             "content": "Where was it played?",
-#         },
-#     ],
-# )
+#             "content": "You are in a debate competition."
+#             "You are arguing FOR the following motion:"
+#             "`The death penalty should be legalised`.",
+#         }
+#     ]
 #
-# print(response.choices[0].message.content)
+#     for _ in range(10):
+#         response = client.chat.completions.create(
+#             model="gpt-3.5-turbo",
+#             messages=history,
+#         )
+#         new_history = {
+#             "role": "assistant",
+#             "content": response.choices[0].message.content,
+#         }
+#         print(new_history)
+#         history.append(new_history)
+#         history = utils.flip_roles(history)
+#
+#     print("=============")
+#     print(history)
 
 
 def main():
     load_dotenv()
-    client = OpenAI()
+    config = DebateConfig(
+        conversation_depth=4,
+        database_connection_string="airena.db",
+        model_names=["gpt-3.5-turbo", "gpt-3.5-turbo"],
+        system_prompt="You are in a debate competition. You are arguing FOR the following motion: `The death penalty should be legalised`",
+    )
 
-    history = [
-        {
-            "role": "system",
-            "content": "You are in a debate competition. You are arguing FOR the following motion: `The death penalty should be legalised`.",
-        }
-    ]
+    engine = DebateEngine.from_config(config)
+    history = engine.run_debate()
 
-    for i in range(10):
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=history,
-        )
-        new_history = {
-            "role": "assistant",
-            "content": response.choices[0].message.content,
-        }
-        print(new_history)
-        history.append(new_history)
-        history = utils.flip_roles(history)
+    json_history = history.to_json_serialisable(engine.adapters)
+    with open("history.json", "w") as f:
+        json.dump(json_history, f, indent=4)
 
-    print("=============")
-    print(history)
+    print(json_history)
 
 
 if __name__ == "__main__":
