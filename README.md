@@ -15,7 +15,7 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-1. Profit!
+4. Profit!
 
 ## Usage
 
