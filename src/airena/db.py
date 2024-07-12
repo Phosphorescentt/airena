@@ -1,8 +1,9 @@
 import sqlite3
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from airena.enums import DatabaseSave
+from airena.review import ReviewInformation
 
 if TYPE_CHECKING:
     from airena.engine import DebateEngine
@@ -140,14 +141,65 @@ def write_history(engine: "DebateEngine") -> DatabaseSave:
     return DatabaseSave.SUCCESS
 
 
-def get_unreviewed_conversation_history_point():
+def get_unreviewed_conversation_history() -> ReviewInformation:
     with get_db_connection() as con:
-        con.execute(
+        cur = con.cursor()
+
+        # Pick a conversation_id with unreviewed conversation_history records
+        cur.execute(
             """
             select * from conversation_history as ch
-            join review as r on r.conversation_history_id = ch.id
-            where r.score = null
+            left join review as r on r.conversation_history_id = ch.id
+            where r.score is null
             """
+        )
+        unreviewed_conversation_history_record = cur.fetchone()
+        conversation_id = unreviewed_conversation_history_record[1]
+
+        # Get all conversation_history records with conversation_id
+        cur.execute(
+            """
+            select * from conversation_history as ch
+            left join review as r on r.conversation_history_id = ch.id
+            where ch.conversation_id = ?
+            """,
+            (conversation_id,),
+        )
+        history_points = cur.fetchall()
+        history_points_ordered = sorted(history_points, key=lambda x: x[2])
+
+        # Find ones without a score in review
+        first_unreviewed_message: List[Any] = next(
+            filter(lambda x: x[7] is None, history_points_ordered),
+            None,  # type: ignore
+        )
+        first_unreviewed_message_number = first_unreviewed_message[2]
+        last_unreviewed_message: Optional[List[Any]] = next(
+            filter(
+                lambda x: x[7] is not None,
+                history_points_ordered[first_unreviewed_message_number:],
+            ),
+            None,
+        )
+        last_unreviewed_message_number = (
+            last_unreviewed_message[2] if last_unreviewed_message else None
+        )
+
+        # Get total conversation participants.
+        cur.execute(
+            """
+            select * from conversation_participant as cp
+            where cp.conversation_id = ?
+            """,
+            (conversation_id,),
+        )
+        total_participants = len(cur.fetchall())
+
+        return ReviewInformation(
+            total_participants=total_participants,
+            first_unreviewed_message=first_unreviewed_message_number,
+            last_unreviewed_message=last_unreviewed_message_number,
+            history=[h[3] for h in history_points_ordered],
         )
 
 

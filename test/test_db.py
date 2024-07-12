@@ -56,3 +56,22 @@ def test_write_history(mock_database, mock_adapters):
             (1, 1, 0, "Message one"),
             (2, 1, 1, "Message two"),
         ]
+
+
+def test_get_unreviewed_conversation_history_point(mock_database, mock_adapters):
+    engine = DebateEngine.from_config(
+        DebateConfig(
+            conversation_depth=2,
+            model_names=["gpt-3.5-turbo", "gpt-3.5-turbo"],
+            system_prompt="Test system prompt.",
+        )
+    )
+
+    engine.history.rows.extend(["Message one", "Message two"])
+    db.write_history(engine)
+
+    review_info = db.get_unreviewed_conversation_history()
+    assert review_info.total_participants == len(engine.adapters)
+    assert review_info.first_unreviewed_message == 0
+    assert review_info.last_unreviewed_message is None
+    assert review_info.history == engine.history.rows
