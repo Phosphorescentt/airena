@@ -1,3 +1,3 @@
 # AIrena
 
-Pitting LLMs against eachother in structured debate and evaluating their performance with a human in the loop.
+Forcing LLMs to argue with each other and convince their counterpart that they are right.
