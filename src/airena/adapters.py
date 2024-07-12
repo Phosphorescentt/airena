@@ -21,6 +21,7 @@ class CompletionException(Exception):
 
 
 class Adapter(Protocol):
+    model_name: str
     _turn_information: "TurnInformation"
 
     @staticmethod
@@ -33,7 +34,7 @@ class Adapter(Protocol):
     def get_next_message(self, history: "DebateHistory") -> str: ...
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class OpenAIAdapter(Adapter):
     """Manages sending information off to OpenAI and reading it back.
 
@@ -43,6 +44,8 @@ class OpenAIAdapter(Adapter):
 
     model_name: str
     _turn_information: "TurnInformation"
+    # TODO: Wrap this in some other kind of Client system so that I can decouple
+    # it and write unit tests easier.
     _client: OpenAI
 
     @staticmethod

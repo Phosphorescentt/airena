@@ -2,12 +2,14 @@ import json
 from dotenv import load_dotenv
 
 from airena.engine import DebateConfig, DebateEngine
+from airena.db import setup_db
 
 
 # TODO: Set this up better lol. This should be one function that dispatches elsewhere
 # based on some subcommands, not multiple functions.
 def argue():
     load_dotenv()
+    setup_db()
     config = DebateConfig(
         conversation_depth=2,
         model_names=["gpt-3.5-turbo", "gpt-3.5-turbo"],
@@ -27,4 +29,5 @@ def argue():
 
 
 def review():
+    setup_db()
     print("review!")

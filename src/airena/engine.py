@@ -1,9 +1,9 @@
 from collections import deque
 from copy import copy
 from dataclasses import dataclass
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Type, NamedTuple
 
-from airena.db import write_history_to_db
+from airena.db import write_history
 from airena.enums import DatabaseSave
 from airena.adapters import Adapter, OpenAIAdapter
 
@@ -12,14 +12,12 @@ MODEL_NAME_TO_ADAPTER_MAP: Dict[str, Type[Adapter]] = {
 }
 
 
-@dataclass
-class TurnInformation:
+class TurnInformation(NamedTuple):
     position: int
     total_participants: int
 
 
-@dataclass
-class DebateConfig:
+class DebateConfig(NamedTuple):
     conversation_depth: int
     model_names: List[str]
     system_prompt: str
@@ -104,7 +102,4 @@ class DebateEngine:
         also the saving of the data to the database.
         """
 
-        return write_history_to_db(
-            [adapter.to_json() for adapter in self.adapters],
-            self.history.to_json_serialisable(self.adapters),
-        )
+        return write_history(self)
