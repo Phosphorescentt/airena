@@ -32,6 +32,8 @@ def setup_db(con: Optional[sqlite3.Connection] = None):
         con.commit()
 
 
+# TODO: Fix this scuffed datamoddel - this is not versatile in any way and
+# this is just going to cause me problems later on :)
 def create_conversation_table(con: sqlite3.Connection):
     con.execute(
         """
@@ -79,10 +81,8 @@ def create_review_table(con: sqlite3.Connection):
         create table if not exists review(
             id integer primary key,
             conversation_history_id integer,
-            participant_id integer,
-            score integer,
-            foreign key(conversation_history_id) references conversation_history(id),
-            foreign key(participant_id) references conversation_participant(id)
+            score float,
+            foreign key(conversation_history_id) references conversation_history(id)
         );
         """
     )
@@ -170,13 +170,13 @@ def get_unreviewed_conversation_history() -> ReviewInformation:
 
         # Find ones without a score in review
         first_unreviewed_message: List[Any] = next(
-            filter(lambda x: x[7] is None, history_points_ordered),
+            filter(lambda x: x[6] is None, history_points_ordered),
             None,  # type: ignore
         )
         first_unreviewed_message_number = first_unreviewed_message[2]
         last_unreviewed_message: Optional[List[Any]] = next(
             filter(
-                lambda x: x[7] is not None,
+                lambda x: x[6] is not None,
                 history_points_ordered[first_unreviewed_message_number:],
             ),
             None,
@@ -195,13 +195,50 @@ def get_unreviewed_conversation_history() -> ReviewInformation:
         )
         total_participants = len(cur.fetchall())
 
+        # Get system prompt
+        cur.execute(
+            """
+            select system_prompt from conversation where id = ?
+            """,
+            (conversation_id,),
+        )
+        system_prompt = cur.fetchone()[0]
+
         return ReviewInformation(
+            conversation_id=conversation_id,
             total_participants=total_participants,
-            first_unreviewed_message=first_unreviewed_message_number,
-            last_unreviewed_message=last_unreviewed_message_number,
+            first_message=first_unreviewed_message_number,
+            last_message=last_unreviewed_message_number,
+            system_prompt=system_prompt,
             history=[h[3] for h in history_points_ordered],
         )
 
 
-def write_conversation_history_point_score():
-    con = get_db_connection()
+def write_conversation_history_point_score(
+    conversation_id: int, message_number: int, score: float
+) -> DatabaseSave:
+    with get_db_connection() as con:
+        cur = con.cursor()
+
+        # Find conversation_history_id
+        cur.execute(
+            """
+            select id from conversation_history
+            where conversation_id = ?
+            and message_number = ?
+            """,
+            (conversation_id, message_number),
+        )
+        conversation_history_id = cur.fetchone()[0]
+
+        # Insert score into review
+        cur.execute(
+            """
+            insert into review(conversation_history_id, score)
+            values (?, ?)
+            """,
+            (conversation_history_id, score),
+        )
+        con.commit()
+
+    return DatabaseSave.SUCCESS

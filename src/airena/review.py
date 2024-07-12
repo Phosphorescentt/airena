@@ -4,7 +4,9 @@ from dataclasses import dataclass
 
 @dataclass
 class ReviewInformation:
+    conversation_id: int
     total_participants: int
-    first_unreviewed_message: int
-    last_unreviewed_message: Optional[int]
+    first_message: int
+    last_message: Optional[int]
+    system_prompt: str
     history: List[str]
