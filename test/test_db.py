@@ -72,7 +72,7 @@ def test_get_unreviewed_conversation_history_point(mock_database, mock_adapters)
 
     review_info = db.get_unreviewed_conversation_history()
     assert review_info.total_participants == len(engine.adapters)
-    assert review_info.first_unreviewed_message == 0
-    assert review_info.last_unreviewed_message is None
+    assert review_info.first_message == 0
+    assert review_info.last_message is None
     assert review_info.system_prompt == engine.history.system_prompt
     assert review_info.history == engine.history.rows
