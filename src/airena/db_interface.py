@@ -1,6 +1,11 @@
+from itertools import cycle
 from typing import TYPE_CHECKING
 
-from airena.db import Conversation, ConversationHistory, ConversationParticipant
+from airena.db import (
+    Conversation,
+    ConversationEntry,
+    Participant,
+)
 from airena.enums import DatabaseSave
 
 if TYPE_CHECKING:
@@ -11,24 +16,30 @@ class ConversationInterface:
     @staticmethod
     def write_conversation_and_history(engine: "DebateEngine") -> DatabaseSave:
         conversation = Conversation(
-            total_participants=len(engine.adapters),
-            length=engine.max_conversation_depth,
             system_prompt=engine.history.system_prompt,
         )
         conversation.save()
 
-        for adapter in engine.adapters:
-            participant = ConversationParticipant(
-                model_name=adapter.model_name,
-                turn_position=adapter._turn_information.position,
-                conversation_id=conversation.id,
-            )
-            participant.save()
+        sorted_adapters = sorted(
+            engine.adapters, key=lambda x: x._turn_information.position
+        )
+        participants = Participant.bulk_upsert(
+            model_names=[adapter.model_name for adapter in sorted_adapters]
+        )
 
-        for i, row in enumerate(engine.history.rows):
-            history = ConversationHistory(
-                conversation_id=conversation.id, message_number=i, message_content=row
+        for i, (participant, row) in enumerate(
+            zip(cycle(participants), engine.history.rows)
+        ):
+            history = ConversationEntry(
+                conversation_id=conversation.id,
+                message_index=i,
+                message_content=row,
+                participant_id=participant.id,
             )
             history.save()
 
         return DatabaseSave.SUCCESS
+
+    @staticmethod
+    def read_conversation_and_history(engine: "DebateEngine"):
+        pass

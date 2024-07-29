@@ -2,7 +2,7 @@ from airena.db_interface import ConversationInterface
 from conftest import mock_database
 import unittest.mock as mock
 
-from airena.db import Conversation, ConversationHistory, ConversationParticipant
+from airena.db import Conversation, ConversationEntry, LanguageModel, Participant
 from airena.engine import DebateEngine, DebateConfig
 
 import pytest
@@ -32,25 +32,23 @@ class TestConversation:
         ConversationInterface.write_conversation_and_history(engine)
 
         c = Conversation.select().namedtuples().first()
-        assert c.total_participants == 2
-        assert c.length == 2
         assert c.system_prompt == engine.history.system_prompt
 
-        cps = ConversationParticipant.select().namedtuples()
-        assert cps[0].model_name == engine.adapters[0].model_name
-        assert cps[0].turn_position == 0
-        assert cps[0].conversation_id == c.id
+        models = LanguageModel.select().namedtuples()
+        assert len(models) == 1
+        model = models[0]
+        assert model.model_name == "gpt-3.5-turbo"
 
-        assert cps[1].model_name == engine.adapters[0].model_name
-        assert cps[1].turn_position == 1
-        assert cps[0].conversation_id == c.id
+        cps = Participant.select().namedtuples()
+        assert cps[0].model_id == model.id
+        assert cps[1].model_id == model.id
 
-        chs = ConversationHistory.select().namedtuples()
-        assert chs[0].message_number == 0
+        chs = ConversationEntry.select().namedtuples()
+        assert chs[0].message_index == 0
         assert chs[0].message_content == engine.history.rows[0]
         assert chs[0].conversation_id == c.id
 
-        assert chs[1].message_number == 1
+        assert chs[1].message_index == 1
         assert chs[1].message_content == engine.history.rows[1]
         assert chs[1].conversation_id == c.id
 

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from peewee import (
     AutoField,
     CharField,
@@ -11,8 +11,6 @@ from peewee import (
 )
 
 DB_FILENAME = "airena.db"
-
-
 DB = SqliteDatabase(DB_FILENAME)
 
 
@@ -21,9 +19,10 @@ def setup_db(db: Database):
         db.create_tables(
             [
                 Conversation,
-                ConversationParticipant,
-                ConversationHistory,
-                Review,
+                LanguageModel,
+                Participant,
+                ConversationEntry,
+                ConversationReview,
             ]
         )
 
@@ -35,54 +34,51 @@ class BaseModel(Model):
 
 class Conversation(BaseModel):
     id = AutoField()
-    total_participants = IntegerField()
-    length = IntegerField()
     system_prompt = CharField()
 
     @staticmethod
-    def get_unreviewed_conversation() -> "Conversation":
+    def get_unreviewed_conversation() -> Optional["Conversation"]:
         unreviewed_conversation = (
             Conversation.select()
-            .join(ConversationHistory)
-            .left_outer_join(Review)
-            .where(Review.score == None)
+            .left_outer_join(ConversationReview)
+            # TODO: Test if using `cond is None` works here
+            # I know that it breaks SQLAlchemy.
+            .where(ConversationReview.score is None)
             .get_or_none()
         )
 
         return unreviewed_conversation
 
 
-class ConversationParticipant(BaseModel):
+class LanguageModel(BaseModel):
     id = AutoField()
-    model_name = CharField()
-    turn_position = IntegerField()
-    conversation_id = ForeignKeyField(Conversation)
+    model_name = CharField(unique=True)
 
 
-class ConversationHistory(BaseModel):
+class Participant(BaseModel):
     id = AutoField()
-    conversation_id = ForeignKeyField(Conversation)
-    message_number = IntegerField()
-    message_content = CharField()
+    model_id = ForeignKeyField(LanguageModel)
 
     @staticmethod
-    def get_history(conversation: Conversation) -> List["ConversationHistory"]:
-        history_points: List[ConversationHistory] = (
-            ConversationHistory.select()
-            .where(ConversationHistory.conversation_id == conversation.id)
-            .order_by(ConversationHistory.message_number.asc())
-        )
-        return history_points
+    def bulk_upsert(model_names: List[str]) -> List["Participant"]:
+        models = [
+            LanguageModel.get_or_create(model_name=model_name)[0]
+            for model_name in model_names
+        ]
+        participants = [Participant(model_id=model.id) for model in models]
+        [p.save() for p in participants]
 
-    def set_review_value(self, score: float):
-        review = Review(
-            conversation_history_id=self.id,
-            score=score,
-        )
-        review.save()
+        return participants
 
 
-class Review(BaseModel):
+class ConversationEntry(BaseModel):
     id = AutoField()
-    conversation_history_id = ForeignKeyField(ConversationHistory, unique=True)
+    conversation_id = ForeignKeyField(Conversation)
+    participant_id = ForeignKeyField(Participant)
+    message_index = IntegerField()
+    message_content = CharField()
+
+
+class ConversationReview(BaseModel):
+    id = AutoField()
     score = FloatField()
