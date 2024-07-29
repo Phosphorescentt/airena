@@ -15,11 +15,8 @@ def mock_adapters():
         yield
 
 
-class TestConversation:
+class TestConversationInterface:
     def test_write_conversation_and_history(self, mock_database, mock_adapters):
-        # TODO: Decouple this `write_conversation_and_history` method a bit more.
-        # I should be able to test this without having to write a bunch of engine
-        # boilerplate and mocking the adapters.
         engine = DebateEngine.from_config(
             DebateConfig(
                 conversation_depth=2,

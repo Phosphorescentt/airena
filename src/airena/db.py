@@ -10,6 +10,8 @@ from peewee import (
     SqliteDatabase,
 )
 
+from airena.enums import DatabaseSave
+
 DB_FILENAME = "airena.db"
 DB = SqliteDatabase(DB_FILENAME)
 
@@ -41,13 +43,17 @@ class Conversation(BaseModel):
         unreviewed_conversation = (
             Conversation.select()
             .left_outer_join(ConversationReview)
-            # TODO: Test if using `cond is None` works here
-            # I know that it breaks SQLAlchemy.
-            .where(ConversationReview.score is None)
+            # NOTE: Must use double equals here. Ignore E711 errors.
+            .where(ConversationReview.value == None)  #  noqa: E711
             .get_or_none()
         )
 
         return unreviewed_conversation
+
+    def set_review_value(self, value: float) -> DatabaseSave:
+        review = ConversationReview(conversation_id=self.id, value=value)
+        review.save()
+        return DatabaseSave.FAILURE
 
 
 class LanguageModel(BaseModel):
@@ -78,7 +84,16 @@ class ConversationEntry(BaseModel):
     message_index = IntegerField()
     message_content = CharField()
 
+    @staticmethod
+    def get_conversation_history(
+        conversation: Conversation,
+    ) -> List["ConversationEntry"]:
+        return ConversationEntry.select().where(
+            ConversationEntry.conversation_id == conversation.id
+        )
+
 
 class ConversationReview(BaseModel):
     id = AutoField()
-    score = FloatField()
+    conversation_id = ForeignKeyField(Conversation)
+    value = FloatField()

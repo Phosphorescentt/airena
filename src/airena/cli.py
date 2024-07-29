@@ -1,8 +1,9 @@
+import itertools
 import json
 
 from dotenv import load_dotenv
 
-from airena.db import DB, Conversation, ConversationHistory, setup_db
+from airena.db import DB, Conversation, ConversationEntry, Participant, setup_db
 from airena.engine import DebateConfig, DebateEngine
 
 
@@ -40,24 +41,31 @@ def review():
         print("No unreviewed conversations left!")
         return
 
-    history_points = ConversationHistory.get_history(unreviewed_conversation)
+    conversation_entries = ConversationEntry.get_conversation_history(
+        unreviewed_conversation
+    )
+    participants = set(
+        Participant.select().where(
+            Participant.id in [entry.participant_id for entry in conversation_entries]
+        )
+    )
 
+    participants = [entry.participant_id for entry in conversation_entries]
     print(f"prompt: {unreviewed_conversation.system_prompt}")
 
-    # TODO: Change this so that it collects all the reviews individually, but groups
-    # them and commits them to the db all at once. This should stop partial writes.
-    for i, history in enumerate(history_points):
-        print(
-            f"{i % unreviewed_conversation.total_participants}: {history.message_content}"
-        )
-        while True:
-            print(
-                """Who is winning?\n(1-10, 1 is agent 1 is winning, 10 is agent 2 is winning.)"""
-            )
-            current_score = input(">>> ")
-            try:
-                current_score_float = float(current_score)
-                history.set_review_value(current_score_float)
-                break
-            except ValueError:
-                print("Invalid winner, please enter an int.")
+    for i, (participant, entry) in enumerate(
+        zip(itertools.cycle(participants), conversation_entries)
+    ):
+        print(f"{i % len(participants)}: {entry.message_content}")
+
+    print(
+        """Who is winning?\n(1-10, 1 is agent 1 is winning, 10 is agent 2 is winning.)"""
+    )
+    while True:
+        current_score = input(">>> ")
+        try:
+            current_score_float = float(current_score)
+            unreviewed_conversation.set_review_value(current_score_float)
+            break
+        except ValueError:
+            print("Invalid winner, please enter an int.")
