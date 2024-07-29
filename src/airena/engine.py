@@ -1,13 +1,11 @@
 from collections import deque
 from copy import copy
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Type
+from typing import Any, Dict, List, NamedTuple, Type
 
 from airena.adapters import Adapter, OpenAIAdapter
 from airena.enums import DatabaseSave
-
-if TYPE_CHECKING:
-    from airena.db import Conversation
+from airena.db_interface import ConversationInterface
 
 
 MODEL_NAME_TO_ADAPTER_MAP: Dict[str, Type[Adapter]] = {
@@ -105,4 +103,4 @@ class DebateEngine:
         also the saving of the data to the database.
         """
 
-        return Conversation.write_to_db(self)
+        return ConversationInterface.write_conversation_and_history(self)

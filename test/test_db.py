@@ -1,3 +1,4 @@
+from airena.db_interface import ConversationInterface
 from conftest import mock_database
 import unittest.mock as mock
 
@@ -28,7 +29,7 @@ class TestConversation:
         )
 
         engine.history.rows.extend(["Message one", "Message two"])
-        Conversation.write_conversation_and_history(engine)
+        ConversationInterface.write_conversation_and_history(engine)
 
         c = Conversation.select().namedtuples().first()
         assert c.total_participants == 2

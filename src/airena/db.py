@@ -1,3 +1,4 @@
+from typing import List
 from peewee import (
     AutoField,
     CharField,
@@ -9,14 +10,10 @@ from peewee import (
     SqliteDatabase,
 )
 
-from airena.engine import DebateEngine
-from airena.enums import DatabaseSave
-
-
 DB_FILENAME = "airena.db"
 
 
-db = SqliteDatabase(DB_FILENAME)
+DB = SqliteDatabase(DB_FILENAME)
 
 
 def setup_db(db: Database):
@@ -33,7 +30,7 @@ def setup_db(db: Database):
 
 class BaseModel(Model):
     class Meta:
-        database = db
+        database = DB
 
 
 class Conversation(BaseModel):
@@ -43,29 +40,16 @@ class Conversation(BaseModel):
     system_prompt = CharField()
 
     @staticmethod
-    def write_conversation_and_history(engine: DebateEngine) -> DatabaseSave:
-        conversation = Conversation(
-            total_participants=len(engine.adapters),
-            length=engine.max_conversation_depth,
-            system_prompt=engine.history.system_prompt,
+    def get_unreviewed_conversation() -> "Conversation":
+        unreviewed_conversation = (
+            Conversation.select()
+            .join(ConversationHistory)
+            .left_outer_join(Review)
+            .where(Review.score == None)
+            .get_or_none()
         )
-        conversation.save()
 
-        for adapter in engine.adapters:
-            participant = ConversationParticipant(
-                model_name=adapter.model_name,
-                turn_position=adapter._turn_information.position,
-                conversation_id=conversation.id,
-            )
-            participant.save()
-
-        for i, row in enumerate(engine.history.rows):
-            history = ConversationHistory(
-                conversation_id=conversation.id, message_number=i, message_content=row
-            )
-            history.save()
-
-        return DatabaseSave.SUCCESS
+        return unreviewed_conversation
 
 
 class ConversationParticipant(BaseModel):
@@ -81,8 +65,24 @@ class ConversationHistory(BaseModel):
     message_number = IntegerField()
     message_content = CharField()
 
+    @staticmethod
+    def get_history(conversation: Conversation) -> List["ConversationHistory"]:
+        history_points: List[ConversationHistory] = (
+            ConversationHistory.select()
+            .where(ConversationHistory.conversation_id == conversation.id)
+            .order_by(ConversationHistory.message_number.asc())
+        )
+        return history_points
+
+    def set_review_value(self, score: float):
+        review = Review(
+            conversation_history_id=self.id,
+            score=score,
+        )
+        review.save()
+
 
 class Review(BaseModel):
     id = AutoField()
-    conversation_history_id = ForeignKeyField(ConversationHistory)
+    conversation_history_id = ForeignKeyField(ConversationHistory, unique=True)
     score = FloatField()
